@@ -85,6 +85,7 @@ function pauseProcess() {
 }
 
 function resumeProcess(tabId, delay) {
+  isPaused = false;
   if (!friendLinks.length) {
     chrome.storage.local.get(['friendLinks', 'currentIndex', 'allProfiles'], (data) => {
       friendLinks = data.friendLinks || [];
