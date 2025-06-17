@@ -117,8 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
   resetButton.addEventListener('click', () => {
     if (confirm("Voulez-vous vraiment réinitialiser toutes les données ?")) {
       chrome.runtime.sendMessage({ action: "resetData" });
-      allProfiles = [];
-      updateCount();
+      chrome.storage.local.set({ allProfiles: [] }, () => {
+        updateCount();
+      });
       progressBar.style.width = `0%`;
       progressText.textContent = "En attente...";
       addLog("Données réinitialisées");
