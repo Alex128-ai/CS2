@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "Steam Inventory Scanner",
+  "version": "1.0",
+  "description": "Analyse les inventaires CS2 de vos amis Steam",
+  "permissions": ["activeTab", "storage", "scripting", "downloads"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
