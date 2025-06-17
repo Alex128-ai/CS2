@@ -3,6 +3,7 @@ let currentIndex = 0;
 let friendLinks = [];
 let tabId = null;
 let allProfiles = [];
+let paused = false;
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.action === "start") {
@@ -10,11 +11,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     chrome.storage.local.get(['delay'], (result) => {
       startProcess(tabId, parseInt(result.delay) || 3000);
     });
+  } else if (message.action === "pause") {
+    pauseProcess();
+  } else if (message.action === "resume") {
+    tabId = message.tabId;
+    chrome.storage.local.get(['delay'], (result) => {
+      resumeProcess(tabId, parseInt(result.delay) || 3000);
+    });
   } else if (message.action === "stop") {
     stopProcess();
   } else if (message.action === "resetData") {
     allProfiles = [];
-    chrome.storage.local.set({ allProfiles });
+    currentIndex = 0;
+    friendLinks = [];
+    chrome.storage.local.set({ allProfiles, currentIndex, friendLinks });
   } else if (message.action === "log") {
     chrome.runtime.sendMessage(message);
   }
@@ -23,7 +33,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 function startProcess(tabId, delay) {
   stopProcess();
   logMessage("Démarrage du scan...");
-  
+  paused = false;
+
   chrome.scripting.executeScript({
     target: { tabId },
     func: () => {
@@ -41,6 +52,7 @@ function startProcess(tabId, delay) {
       friendLinks = results[0].result;
       currentIndex = 0;
       allProfiles = [];
+      chrome.storage.local.set({ friendLinks, currentIndex, allProfiles });
       
       if (friendLinks.length > 0) {
         logMessage(`${friendLinks.length} profils trouvés`);
@@ -62,6 +74,33 @@ function stopProcess() {
   timer = null;
   currentIndex = 0;
   friendLinks = [];
+  paused = false;
+  chrome.storage.local.set({ currentIndex, friendLinks });
+}
+
+function pauseProcess() {
+  if (timer) clearTimeout(timer);
+  timer = null;
+  paused = true;
+  chrome.storage.local.set({ currentIndex, friendLinks, allProfiles });
+}
+
+function resumeProcess(tabId, delay) {
+  if (paused && friendLinks.length) {
+    paused = false;
+    processNextFriend(tabId, delay);
+  } else {
+    chrome.storage.local.get(['currentIndex', 'friendLinks', 'allProfiles'], (data) => {
+      friendLinks = data.friendLinks || [];
+      currentIndex = data.currentIndex || 0;
+      allProfiles = data.allProfiles || [];
+      if (friendLinks.length && currentIndex < friendLinks.length) {
+        paused = false;
+        logMessage('Reprise du scan...');
+        processNextFriend(tabId, delay);
+      }
+    });
+  }
 }
 
 function processNextFriend(tabId, delay) {
@@ -122,20 +161,22 @@ function processNextFriend(tabId, delay) {
           value: data.value,
           cases: data.cases
         });
-        chrome.storage.local.set({ allProfiles });
+        chrome.storage.local.set({ allProfiles, currentIndex });
         
         // Mettre à jour la progression
-        chrome.runtime.sendMessage({ 
-          action: "progress", 
-          current: currentIndex + 1, 
-          total: friendLinks.length 
-        });
+  chrome.runtime.sendMessage({
+    action: "progress",
+    current: currentIndex + 1,
+    total: friendLinks.length
+  });
+
         
         // Log des résultats
         logMessage(`→ Valeur: ${data.value}€ | Caisses: ${data.cases}`);
         
         // Passer au profil suivant
         currentIndex++;
+        chrome.storage.local.set({ currentIndex });
         processNextFriend(tabId, delay);
       });
     }, delay);
