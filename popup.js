@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   const toggleButton = document.getElementById('toggleButton');
+  const resumeButton = document.getElementById('resumeButton');
   const delaySlider = document.getElementById('delay');
   const delayValue = document.getElementById('delayValue');
   const exportButton = document.getElementById('exportButton');
@@ -17,6 +18,12 @@ document.addEventListener('DOMContentLoaded', () => {
   
   let running = false;
 
+  chrome.storage.local.get(['friendLinks', 'currentIndex'], (data) => {
+    if (data.friendLinks && data.friendLinks.length > (data.currentIndex || 0)) {
+      resumeButton.style.display = 'block';
+    }
+  });
+
   // Gérer le bouton de démarrage/arrêt
   toggleButton.addEventListener('click', async () => {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -33,9 +40,19 @@ document.addEventListener('DOMContentLoaded', () => {
       clearConsole();
       chrome.storage.local.set({ delay: delaySlider.value });
       chrome.runtime.sendMessage({ action: "start", tabId: tab.id });
+      resumeButton.style.display = 'none';
     } else {
-      chrome.runtime.sendMessage({ action: "stop" });
+      chrome.runtime.sendMessage({ action: "pause" });
+      resumeButton.style.display = 'block';
     }
+  });
+
+  resumeButton.addEventListener('click', async () => {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    running = true;
+    toggleButton.textContent = 'Arrêter';
+    resumeButton.style.display = 'none';
+    chrome.runtime.sendMessage({ action: 'resume', tabId: tab.id });
   });
   
   // Mettre à jour le compteur de profils
@@ -105,6 +122,7 @@ document.addEventListener('DOMContentLoaded', () => {
       progressBar.style.width = `0%`;
       progressText.textContent = "En attente...";
       addLog("Données réinitialisées");
+      resumeButton.style.display = 'none';
     }
   });
   
