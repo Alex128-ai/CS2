@@ -9,6 +9,8 @@ chrome.storage.local.get(['delay', 'mode'], data => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg.action === 'start') {
+    if (typeof msg.delay === 'number') delay = msg.delay;
+    if (msg.mode) mode = msg.mode;
     running = true;
     scan();
   } else if (msg.action === 'stop') {
@@ -19,8 +21,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 async function scan() {
   chrome.runtime.sendMessage({ status: 'Scanning...' });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab || !tab.url.includes('steamcommunity.com')) {
+    chrome.runtime.sendMessage({ status: 'Ouvrez la page d\'amis Steam' });
+    running = false;
+    return;
+  }
   chrome.tabs.sendMessage(tab.id, { action: 'collect' }, async response => {
-    if (!response || !response.friends) {
+    if (chrome.runtime.lastError || !response || !response.friends) {
       chrome.runtime.sendMessage({ status: 'Aucun ami détecté' });
       running = false;
       return;
